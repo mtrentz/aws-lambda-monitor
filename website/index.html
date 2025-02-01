@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lambda Instance Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        #lambda-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .lambda-box {
+            width: 100px;
+            height: 100px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+            margin-top: 10px;
+        }
+
+        .status-execution {
+            background-color: rgb(8, 223, 114);
+        }
+
+        .status-finished_execution {
+            background-color: rgb(255, 224, 33);
+            color: black;
+        }
+
+        button {
+            margin-right: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Lambda Instance Monitor</h1>
+    <button id="connectBtn">Connect</button>
+    <button id="disconnectBtn" disabled>Disconnect</button>
+    <div id="lambda-container"></div>
+
+    <script>
+        let socket;
+        // Will be replaced in the CDK deployment
+        const websocketUrl = "wss://${Token[TOKEN.68]}.execute-api.${Token[AWS.Region.7]}.${Token[AWS.URLSuffix.4]}/production";
+        const lambdaInstances = {};
+
+        document.getElementById('connectBtn').addEventListener('click', () => {
+            socket = new WebSocket(websocketUrl);
+
+            socket.onopen = () => {
+                console.log('Connected to WebSocket');
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+            };
+
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                processLambdaEvent(data.eventDetail);
+            };
+
+            socket.onerror = (error) => {
+                console.error('WebSocket Error:', error.message);
+            };
+
+            socket.onclose = () => {
+                console.log('Disconnected from WebSocket');
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+            };
+        });
+
+        document.getElementById('disconnectBtn').addEventListener('click', () => {
+            if (socket) {
+                socket.close();
+            }
+        });
+
+        function processLambdaEvent(eventDetail) {
+            const { instance_id, status, timestamp } = eventDetail;
+
+            if (!lambdaInstances[instance_id]) {
+                // New instance: Add it to the UI
+                lambdaInstances[instance_id] = {
+                    status: status,
+                    lastUpdated: timestamp,
+                    element: addLambdaElement(instance_id, status)
+                };
+            } else if (timestamp > lambdaInstances[instance_id].lastUpdated) {
+                // Update instance if the event is newer
+                lambdaInstances[instance_id].status = status;
+                lambdaInstances[instance_id].lastUpdated = timestamp;
+                updateLambdaElement(lambdaInstances[instance_id].element, status);
+            }
+        }
+
+        function addLambdaElement(instanceId, status) {
+            const container = document.getElementById("lambda-container");
+            const div = document.createElement("div");
+            div.id = instanceId;
+            div.className = `lambda-box status-${status}`;
+            div.innerText = instanceId.substring(0, 6);  // Shorten UUID for display
+            container.appendChild(div);
+            return div;
+        }
+
+        function updateLambdaElement(element, status) {
+            element.className = `lambda-box status-${status}`;
+        }
+
+        function cleanupOldInstances() {
+            const expirationTime = Date.now() / 1000 - 300;  // 5 minutes ago
+
+            for (const instanceId in lambdaInstances) {
+                if (lambdaInstances[instanceId].lastUpdated < expirationTime) {
+                    // Remove from DOM and delete from object
+                    lambdaInstances[instanceId].element.remove();
+                    delete lambdaInstances[instanceId];
+                }
+            }
+        }
+
+        // Run cleanup every minute
+        setInterval(cleanupOldInstances, 60000);
+    </script>
+</body>
+
+</html>
