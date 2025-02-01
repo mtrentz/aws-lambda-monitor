@@ -12,7 +12,7 @@ A real-time, event-based learning project to visualize AWS Lambda invocations. T
 1. **Deploy the Stack:** Ensure AWS CLI, Node.js, CDK, and jq are installed and configured, then run:
    
 ```bash
-npx cdk deploy
+cdk deploy
 ```
 
 2. **Update the Website:** After deployment, update the static website with the resolved WebSocket URL:
