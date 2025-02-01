@@ -36,14 +36,15 @@
             margin-top: 10px;
         }
 
-        .status-execution {
+        .status-start {
             background-color: rgb(8, 223, 114);
         }
 
-        .status-finished_execution {
+        .status-finished {
             background-color: rgb(255, 224, 33);
             color: black;
         }
+
 
         button {
             margin-right: 10px;
@@ -62,8 +63,8 @@
 
     <script>
         let socket;
-        // Will be replaced in the CDK deployment
-        const websocketUrl = "wss://${Token[TOKEN.68]}.execute-api.${Token[AWS.Region.7]}.${Token[AWS.URLSuffix.4]}/production";
+        // This value might later be replaced with the value from config.js if you go that route.
+        const websocketUrl = "{{WEBSOCKET_URL}}";
         const lambdaInstances = {};
 
         document.getElementById('connectBtn').addEventListener('click', () => {
@@ -98,20 +99,22 @@
         });
 
         function processLambdaEvent(eventDetail) {
-            const { instance_id, status, timestamp } = eventDetail;
+            // Use eventDetail.instance_id if it exists, otherwise fall back to request_id
+            const id = eventDetail.instance_id || eventDetail.request_id;
+            const { status, timestamp } = eventDetail;
 
-            if (!lambdaInstances[instance_id]) {
-                // New instance: Add it to the UI
-                lambdaInstances[instance_id] = {
+            if (!lambdaInstances[id]) {
+                // New instance: add it to the UI
+                lambdaInstances[id] = {
                     status: status,
                     lastUpdated: timestamp,
-                    element: addLambdaElement(instance_id, status)
+                    element: addLambdaElement(id, status)
                 };
-            } else if (timestamp > lambdaInstances[instance_id].lastUpdated) {
+            } else if (timestamp > lambdaInstances[id].lastUpdated) {
                 // Update instance if the event is newer
-                lambdaInstances[instance_id].status = status;
-                lambdaInstances[instance_id].lastUpdated = timestamp;
-                updateLambdaElement(lambdaInstances[instance_id].element, status);
+                lambdaInstances[id].status = status;
+                lambdaInstances[id].lastUpdated = timestamp;
+                updateLambdaElement(lambdaInstances[id].element, status);
             }
         }
 
@@ -119,8 +122,10 @@
             const container = document.getElementById("lambda-container");
             const div = document.createElement("div");
             div.id = instanceId;
+            // Make sure CSS classes are defined for these statuses, e.g. .status-start and .status-finished
             div.className = `lambda-box status-${status}`;
-            div.innerText = instanceId.substring(0, 6);  // Shorten UUID for display
+            // Shorten the id for display
+            div.innerText = instanceId.substring(0, 6);
             container.appendChild(div);
             return div;
         }
@@ -131,7 +136,6 @@
 
         function cleanupOldInstances() {
             const expirationTime = Date.now() / 1000 - 300;  // 5 minutes ago
-
             for (const instanceId in lambdaInstances) {
                 if (lambdaInstances[instanceId].lastUpdated < expirationTime) {
                     // Remove from DOM and delete from object
@@ -144,6 +148,7 @@
         // Run cleanup every minute
         setInterval(cleanupOldInstances, 60000);
     </script>
+
 </body>
 
 </html>

@@ -9,12 +9,10 @@ import * as path from 'path';
 import * as eventbridge from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 
 export class LambdaMonitorStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
-
 
     // DynamoDB
     const tableName = 'lambda-monitor-connections';
@@ -25,7 +23,6 @@ export class LambdaMonitorStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-
     // Lambda Creator Helper
     const createLambda = (name: string, file: string, environment: { [key: string]: string } = {}) =>
       new lambda.Function(this, name, {
@@ -33,11 +30,11 @@ export class LambdaMonitorStack extends cdk.Stack {
         runtime: lambda.Runtime.NODEJS_22_X,
         handler: 'index.handler',
         code: lambda.Code.fromAsset(path.join(__dirname, `../lambdas/${file}`)),
+        timeout: cdk.Duration.minutes(2),
         environment: environment,
       });
 
-
-    // Websocket API + Route Lambdas
+    // WebSocket API + Route Lambdas
     const connectLambda = createLambda('connect', 'connect', {
       TABLE_NAME: tableName,
     });
@@ -57,7 +54,7 @@ export class LambdaMonitorStack extends cdk.Stack {
       autoDeploy: true,
     });
 
-    // Construct the WebSocket URL dynamically as it needs to be HTTP
+    // Construct the WebSocket URL dynamically as it needs to be HTTP (for broadcaster Lambda)
     const webSocketApiUrl = `https://${webSocketApi.apiId}.execute-api.${this.region}.amazonaws.com/${webSocketStage.stageName}`;
 
     const broadcasterLambda = createLambda('broadcaster', 'broadcaster', {
@@ -85,7 +82,6 @@ export class LambdaMonitorStack extends cdk.Stack {
 
     broadcasterLambda.addToRolePolicy(manageConnectionsPolicy);
 
-
     // EventBridge + Rule
     const EVENT_BUS_NAME = 'lambda-monitor-events';
     const EVENT_SOURCE = 'lambda-monitor-lambda';
@@ -103,13 +99,11 @@ export class LambdaMonitorStack extends cdk.Stack {
       targets: [new targets.LambdaFunction(broadcasterLambda)],
     });
 
-
     // Worker Lambda (Event Producer)
     const workerLambda = createLambda('worker', 'worker', {
       EVENT_BUS_NAME: EVENT_BUS_NAME,
       EVENT_SOURCE: EVENT_SOURCE,
     });
-
 
     // Grant Permissions to Worker Lambda
     eventBus.grantPutEventsTo(workerLambda);
@@ -118,8 +112,7 @@ export class LambdaMonitorStack extends cdk.Stack {
     const websiteBucket = new s3.Bucket(this, 'WebsiteBucket', {
       websiteIndexDocument: 'index.html',
       publicReadAccess: true,
-      // Make public
-      // ValidationError: Cannot use 'publicReadAccess' property on a bucket without allowing bucket-level public access through 'blockPublicAccess' property.
+      // Allow public access by disabling the block settings:
       blockPublicAccess: new s3.BlockPublicAccess({
         blockPublicAcls: false,
         blockPublicPolicy: false,
@@ -129,30 +122,20 @@ export class LambdaMonitorStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // Deploy the website assets with a bundling step to substitute the placeholder.
-    // This runs inside a Docker container (here using Alpine) to perform the sed command.
-    const webSocketWssUrl = `wss://${webSocketApi.apiId}.execute-api.${this.region}.amazonaws.com/${webSocketStage.stageName}/`;
-    console.log('WebSocket URL:', webSocketWssUrl);
-
-    new s3deploy.BucketDeployment(this, 'DeployWebsite', {
-      sources: [s3deploy.Source.asset(path.join(__dirname, '../website'), {
-        bundling: {
-          image: cdk.DockerImage.fromRegistry('alpine'),
-          // Assumes the placeholder is in the index.html file
-          command: [
-            'sh', '-c',
-            `sed -i 's|{{WEBSOCKET_URL}}|${webSocketWssUrl}|g' /asset-input/index.html && cp -r . /asset-output`
-          ],
-        },
-        // Force the bundling to run again if the URL changes:
-      })],
-      destinationBucket: websiteBucket,
-    });
-
-    // Output the website URL at the end of the deployment
+    // Output the website URL, WebSocket URL, and bucket name so you can use them in your post-deployment script.
     new cdk.CfnOutput(this, 'WebsiteURL', {
       value: websiteBucket.bucketWebsiteUrl,
     });
 
+    new cdk.CfnOutput(this, 'WebSocketUrl', {
+      value: cdk.Fn.sub(
+        'wss://${apiId}.execute-api.${AWS::Region}.amazonaws.com/${stage}/',
+        { apiId: webSocketApi.apiId, stage: webSocketStage.stageName }
+      ),
+    });
+
+    new cdk.CfnOutput(this, 'WebsiteBucketName', {
+      value: websiteBucket.bucketName,
+    });
   }
 }
