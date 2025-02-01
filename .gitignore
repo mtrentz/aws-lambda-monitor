@@ -1,3 +1,5 @@
+website/index.temp.html
+
 *.js
 !jest.config.js
 *.d.ts
