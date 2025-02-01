@@ -41,7 +41,7 @@
         }
 
         .status-finished {
-            background-color: rgb(255, 224, 33);
+            background-color: rgb(226, 232, 241);
             color: black;
         }
 
@@ -99,8 +99,7 @@
         });
 
         function processLambdaEvent(eventDetail) {
-            // Use eventDetail.instance_id if it exists, otherwise fall back to request_id
-            const id = eventDetail.instance_id || eventDetail.request_id;
+            const id = eventDetail.lambda_instance_id;
             const { status, timestamp } = eventDetail;
 
             if (!lambdaInstances[id]) {

@@ -1,9 +1,13 @@
 import { EventBridgeClient, PutEventsCommand } from "@aws-sdk/client-eventbridge";
+import { randomUUID } from "crypto";
 
 const EVENT_BUS_NAME = process.env.EVENT_BUS_NAME;
 const EVENT_SOURCE = process.env.EVENT_SOURCE;
 
 const eventbridge = new EventBridgeClient({});
+
+// Generate a unique identifier for this Lambda instance (one per cold start)
+const LAMBDA_INSTANCE_ID = randomUUID();
 
 /**
  * Sends a status event to EventBridge.
@@ -13,7 +17,8 @@ const eventbridge = new EventBridgeClient({});
  */
 export async function sendEvent(status, message, context) {
     const eventDetail = {
-        request_id: context.awsRequestId,
+        lambda_instance_id: LAMBDA_INSTANCE_ID, // Unique ID for this Lambda instance
+        request_id: context.awsRequestId, // Request ID (unique per invocation)
         status,
         message,
         timestamp: Math.floor(Date.now() / 1000),
