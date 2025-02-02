@@ -31,7 +31,7 @@ Open the website URL (from the deployment outputs) in your browser and connect t
 
 ## Running on Production
 
-This is a learning project and although you can just wrap your lambda handlers with the provided `monitor` higher-order function, be aware of the following:
+This is a learning project and although you can just wrap your lambda handlers with the provided `lambdas/worker/monitoring.mjs` higher-order function, as it's done in the `index.mjs`, be aware of the following:
 
 1. The API Gateway is public, so anyone can connect to the WebSocket and see the invocation status.
 2. Sending events in your lambdas could increase the time it takes to run and also increase costs.
