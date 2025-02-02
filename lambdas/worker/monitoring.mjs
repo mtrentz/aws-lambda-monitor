@@ -39,7 +39,7 @@ export async function sendEvent(status, message, context) {
 }
 
 /**
- * Higher-order function (decorator) that wraps a Lambda handler
+ * Higher-order function that wraps a Lambda handler
  * to send start and finished events.
  * @param {Function} handler - Your actual Lambda handler.
  * @returns {Function} A wrapped handler that sends events before and after execution.
