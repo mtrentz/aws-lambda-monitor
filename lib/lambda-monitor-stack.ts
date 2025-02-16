@@ -123,7 +123,7 @@ export class LambdaMonitorStack extends cdk.Stack {
       autoDeleteObjects: true,
     });
 
-    // Output the website URL, WebSocket URL, and bucket name so you can use them in your post-deployment script.
+    // Output the website URL, WebSocket URL, and bucket for the post-deployment script.
     new cdk.CfnOutput(this, 'WebsiteURL', {
       value: websiteBucket.bucketWebsiteUrl,
     });

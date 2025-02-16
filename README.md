@@ -2,7 +2,9 @@
 
 A real-time, event-based learning project to visualize AWS Lambda invocations. The provided CDK code provisions Lambdas, a public API Gateway, DynamoDB, EventBridge, and an S3-hosted static website.
 
-![Visualizer GIF](assets/visualizer.gif)
+<img src="assets/visualizer.gif" alt="Visualizer GIF" width="800" height="800">
+
+## Architecture Diagram
 
 ![AWS Architecture Diagram](assets/diagram.png)  
 
@@ -29,14 +31,24 @@ cdk deploy
 
 Open the website URL (from the deployment outputs) in your browser and connect to the WebSocket. You should see the invocations in real-time.
 
-## Running on Production
+## Monitoring Your Own Lambda Functions
 
-This is a learning project and although you can just wrap your lambda handlers with the provided `lambdas/worker/monitoring.mjs` higher-order function, as it's done in the `index.mjs`, be aware of the following:
+Before you go into it, be aware of the following:
 
-1. The API Gateway is public, so anyone can connect to the WebSocket and see the invocation status.
-2. Sending events in your lambdas could increase the time it takes to run and also increase costs.
+- This is a learning project, and although I think it would be fine to deploy this into your own account, please be sure to analyze the CDK code yourself before you do.
+- Sending events in your lambdas could increase the time it takes to run and also increase costs.
+- The API Gateway URL is public, so anyone can connect to the WebSocket and see the invocation status. Some ideas to secure this are the following:
+    - Add an Authentication lambda to the API Gateway, so that you can authenticate with a query string parameter.
+    - Deploy the frontend with a backend. This way you can both protect the frontend access but also authenticate via the header, which is available as an API Gateway authentication method, but it's not supported by the browser's WebSocket API.
 
-Some ideas that you should consider if you want to run this in production:
+With all that said, adapting this to your own lambdas is pretty straightforward:
 
-1. Add an Authentication lambda to the API Gateway. 
-2. If you have a backend that can handle the WebSocket connections, then authentication becomes easier, as you can just add a required API Key in the headers of the WebSocket connection. This would work with the Node WebSocket client, but unfortunately it doesn't work with the browser's WebSocket API.
+- Copy over the `monitoring.mjs` file into your lambda function.
+- Similarly to how is done in the `index.mjs` for the **Worker** lambda, you can just wrap your handler with the `withMonitoring` higher-order function.
+- Add the following environment variables to your lambda function:
+    - `EVENT_BUS_NAME`: 'lambda-monitor-events'
+    - `EVENT_SOURCE`: 'lambda-monitor-lambda'
+
+
+
+
