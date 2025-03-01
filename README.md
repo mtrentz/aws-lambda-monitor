@@ -2,6 +2,8 @@
 
 A real-time, event-based learning project to visualize AWS Lambda invocations. The provided CDK code provisions Lambdas, a public API Gateway, DynamoDB, EventBridge, and an S3-hosted static website.
 
+Learn more on this [Medium Blog Post](https://blog.det.life/real-time-lambda-monitoring-on-aws-9f518a023963).
+
 <img src="assets/visualizer.gif" alt="Visualizer GIF" width="800" height="800">
 
 ## Architecture Diagram
